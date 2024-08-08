@@ -50,7 +50,7 @@ public static class Program
         }
     }
 
-    private static IApduDevice? GetApduDevice()
+    private static IApduDevice GetApduDevice()
     {
         var atDevice = Environment.GetEnvironmentVariable("DRIVER_IFID") ?? Environment.GetEnvironmentVariable("AT_DEVICE");
 
@@ -64,7 +64,7 @@ public static class Program
             return new ApduAtKnDevice(atDevice!, atKnAddress, atKnLogin, atKnPassword);
         }
 
-        return new ApduAtDevice(atDevice!);
+        return new ApduAtDevice(atDevice);
     }
 
     private static async Task<string> HandleDriverApduList(IApduDevice apduDevice)
@@ -145,7 +145,7 @@ public static class Program
 
             if (new[] { "driver", "apdu", "list" }.All(a => args.Contains(a, StringComparer.OrdinalIgnoreCase)))
             {
-                var response = await HandleDriverApduList(apduDevice!);
+                var response = await HandleDriverApduList(apduDevice);
                 Console.WriteLine(response);
                 return 0;
             }
@@ -170,23 +170,19 @@ public static class Program
                             continue;
 
                         Console.WriteLine(stdOut.Text);
-                        try
-                        {
-                            var request = JsonNode.Parse(stdOut.Text)!;
-                            var requestType = request["type"]!.GetValue<string>();
+                        var request = JsonNode.Parse(stdOut.Text)!;
+                        var requestType = (string)request["type"]!;
 
-                            if (requestType == "apdu")
-                            {
-                                var requestPayload = request["payload"]!;
-                                var func = requestPayload["func"]!.GetValue<string>();
-                                var param = requestPayload["param"]?.GetValue<string>();
-                                var payload = await HandleTypeApdu(apduDevice!, func, param);
-                                var response = $$"""{"type":"apdu","payload":{{payload}}}""";
-                                Console.WriteLine(response);
-                                InputWriteLine(response);
-                            }
+                        if (requestType == "apdu")
+                        {
+                            var requestPayload = request["payload"]!;
+                            var func = (string)requestPayload["func"]!;
+                            var param = (string?)requestPayload["param"];
+                            var payload = await HandleTypeApdu(apduDevice, func, param);
+                            var response = $$"""{"type":"apdu","payload":{{payload}}}""";
+                            Console.WriteLine(response);
+                            InputWriteLine(response);
                         }
-                        catch { }
                         break;
                     case StandardErrorCommandEvent stdErr:
                         Console.Error.WriteLine(stdErr.Text);
