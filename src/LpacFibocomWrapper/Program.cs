@@ -53,6 +53,10 @@ public static class Program
     private static IApduDevice GetApduDevice()
     {
         var atDevice = Environment.GetEnvironmentVariable("DRIVER_IFID") ?? Environment.GetEnvironmentVariable("AT_DEVICE");
+        if (string.IsNullOrWhiteSpace(atDevice))
+        {
+            atDevice = null;
+        }
 
         LoadEnvFile("lpac-kn.env");
 

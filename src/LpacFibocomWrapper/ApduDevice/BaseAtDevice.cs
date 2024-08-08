@@ -21,8 +21,7 @@ public abstract partial class BaseAtDevice : IApduDevice
     public async Task<int> LogicChannelOpen(string param)
     {
         var lines = await SendAtCommand($"AT+CCHO=\"{param}\"");
-
-        if (lines[^1] == "OK" && int.TryParse(lines[^2], out LogicChannelId))
+        if (lines.Length > 0 && lines[^1] == "OK" && int.TryParse(lines[^2], out LogicChannelId))
         {
             return LogicChannelId;
         }
