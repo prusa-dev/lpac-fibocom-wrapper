@@ -31,3 +31,15 @@ For AT provisioning, the modem needs these commands to interact with the eUICC:
 - `AT+CCHO` to open logical channel
 - `AT+CCHC` to close logical channel
 - `AT+CGLA` to use logical channel access
+
+# Keenetic Rest API
+Wrapper support Keenetic Rest API.
+
+## Usage
+- Create text file `lpak-kn.env` near wrapper exe file
+- Write your router address, login and password:
+  ```
+  AT_KN_ADDRESS=http://192.168.1.1
+  AT_KN_LOGIN=admin
+  AT_KN_PASSWORD=admin
+  ```

@@ -1,6 +1,6 @@
 using CliWrap;
 using CliWrap.EventStream;
-using RJCP.IO.Ports;
+using LpacFibocomWrapper.ApduDevice;
 using System.Text;
 using System.Text.Json.Nodes;
 
@@ -31,45 +31,76 @@ public static class Program
     }
     #endregion
 
-    private static async Task<string> HandleDriverApduList()
+    private static void LoadEnvFile(string filePath)
     {
-        await using var portStream = new SerialPortStream();
-        var ports = portStream.GetPortDescriptions();
+        if (!File.Exists(filePath))
+            return;
+
+        foreach (var line in File.ReadAllLines(filePath))
+        {
+            var parts = line.Split(
+                '=',
+                2,
+                StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length != 2)
+                continue;
+
+            Environment.SetEnvironmentVariable(parts[0], parts[1]);
+        }
+    }
+
+    private static IApduDevice? GetApduDevice()
+    {
+        var atDevice = Environment.GetEnvironmentVariable("DRIVER_IFID") ?? Environment.GetEnvironmentVariable("AT_DEVICE");
+
+        LoadEnvFile("lpac-kn.env");
+
+        var atKnAddress = Environment.GetEnvironmentVariable("AT_KN_ADDRESS");
+        if (!string.IsNullOrWhiteSpace(atKnAddress))
+        {
+            var atKnLogin = Environment.GetEnvironmentVariable("AT_KN_LOGIN") ?? throw new Exception("AT_KN_LOGIN is empty");
+            var atKnPassword = Environment.GetEnvironmentVariable("AT_KN_PASSWORD") ?? throw new Exception("AT_KN_PASSWORD is empty");
+            return new ApduAtKnDevice(atDevice!, atKnAddress, atKnLogin, atKnPassword);
+        }
+
+        return new ApduAtDevice(atDevice!);
+    }
+
+    private static async Task<string> HandleDriverApduList(IApduDevice apduDevice)
+    {
+        var apduItems = await apduDevice.GetDriverApduList();
 
         var data = string.Join(",",
-            ports
-                .Select(p => $$"""{"env":"{{p.Port}}","name":"{{p.Description}}"}""")
+            apduItems
+                .Select(a => $$"""{"env":"{{a.Env}}","name":"{{a.Name}}"}""")
                 .ToArray()
         );
 
         return $$$"""{"type":"lpa","payload":{"data":[{{{data}}}]}}""";
     }
 
-
-    private static string? _atDevice;
-    private static ApduAtDevice? _apduAtDevice;
-
-    private static string HandleTypeApdu(string func, string? param)
+    private static async Task<string> HandleTypeApdu(IApduDevice apduDevice, string func, string? param)
     {
         const string okResponse = """{"ecode":0}""";
         const string errorResponse = """{"ecode":-1}""";
 
         if (func == "connect")
         {
-            if (_atDevice is null)
+            if (await apduDevice.Connect())
             {
-                return errorResponse;
+                return okResponse;
             }
-
-            _apduAtDevice = ApduAtDevice.Create(_atDevice);
-            _apduAtDevice.Connect();
-            return okResponse;
+            return errorResponse;
         }
 
         if (func == "disconnect")
         {
-            _apduAtDevice?.Disconnect();
-            return okResponse;
+            if (await apduDevice.Disconnect())
+            {
+                return okResponse;
+            }
+            return errorResponse;
         }
 
         if (func == "logic_channel_open")
@@ -77,14 +108,17 @@ public static class Program
             if (param is null)
                 return errorResponse;
 
-            var channelId = _apduAtDevice!.OpenLogicChannel(param);
+            var channelId = await apduDevice.LogicChannelOpen(param);
             return $$"""{"ecode":{{channelId}}}""";
         }
 
         if (func == "logic_channel_close")
         {
-            _apduAtDevice!.CloseLogicChannel();
-            return okResponse;
+            if (await apduDevice.LogicChannelClose())
+            {
+                return okResponse;
+            }
+            return errorResponse;
         }
 
         if (func == "transmit")
@@ -92,10 +126,12 @@ public static class Program
             if (param is null)
                 return errorResponse;
 
-            if (_apduAtDevice!.TryTransmit(param, out var data))
+            var data = await apduDevice.Transmit(param);
+            if (data is not null)
             {
                 return $$"""{"ecode":0,"data":"{{data}}"}""";
             }
+            return errorResponse;
         }
 
         return errorResponse;
@@ -105,14 +141,14 @@ public static class Program
     {
         try
         {
+            using var apduDevice = GetApduDevice();
+
             if (new[] { "driver", "apdu", "list" }.All(a => args.Contains(a, StringComparer.OrdinalIgnoreCase)))
             {
-                var response = await HandleDriverApduList();
+                var response = await HandleDriverApduList(apduDevice!);
                 Console.WriteLine(response);
                 return 0;
             }
-
-            _atDevice = Environment.GetEnvironmentVariable("DRIVER_IFID") ?? Environment.GetEnvironmentVariable("AT_DEVICE");
 
             var procInputPipe = CreateInputPipe();
 
@@ -144,7 +180,7 @@ public static class Program
                                 var requestPayload = request["payload"]!;
                                 var func = requestPayload["func"]!.GetValue<string>();
                                 var param = requestPayload["param"]?.GetValue<string>();
-                                var payload = HandleTypeApdu(func, param);
+                                var payload = await HandleTypeApdu(apduDevice!, func, param);
                                 var response = $$"""{"type":"apdu","payload":{{payload}}}""";
                                 Console.WriteLine(response);
                                 InputWriteLine(response);
@@ -165,10 +201,6 @@ public static class Program
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex.Message);
-        }
-        finally
-        {
-            _apduAtDevice?.Dispose();
         }
 
         return -1;
