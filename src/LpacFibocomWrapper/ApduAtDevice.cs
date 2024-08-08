@@ -1,4 +1,4 @@
-﻿using RJCP.IO.Ports;
+using RJCP.IO.Ports;
 using System.Text;
 using System.Text.RegularExpressions;
 
