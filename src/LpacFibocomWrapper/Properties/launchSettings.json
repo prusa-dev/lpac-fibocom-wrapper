@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "LpacFibocomWrapper": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "AT_DEVICE": "COM10"
+      },
+      "commandLineArgs": "version"
+    }
+  }
+}
