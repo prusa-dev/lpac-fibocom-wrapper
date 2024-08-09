@@ -6,11 +6,20 @@ public abstract partial class BaseAtDevice : IApduDevice
     [GeneratedRegex("\\+CGLA:\\s?(?<length>\\d+),(?<data>[\\S]+)")]
     protected static partial Regex RegExCgla();
 
+    [GeneratedRegex("\\+CCHO:\\s?(?<channelId>\\d+)")]
+    protected static partial Regex RegExCcho();
+
     protected int LogicChannelId = -1;
 
     protected abstract Task<string[]> SendAtCommand(string atCommand);
 
-    public abstract void Dispose();
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    protected abstract void Dispose(bool disposing);
+
 
     public abstract Task<IEnumerable<ApduItem>> GetDriverApduList();
 
@@ -21,12 +30,26 @@ public abstract partial class BaseAtDevice : IApduDevice
     public async Task<int> LogicChannelOpen(string param)
     {
         var lines = await SendAtCommand($"AT+CCHO=\"{param}\"");
-        if (lines.Length > 0 && lines[^1] == "OK" && int.TryParse(lines[^2], out LogicChannelId))
+
+        for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
-            return LogicChannelId;
+            var line = lines[lineIndex];
+
+            var m = RegExCcho().Match(line);
+            if (m.Success && int.TryParse(m.Groups["channelId"].Value, out LogicChannelId))
+            {
+                return LogicChannelId;
+            }
+
+            if (line == "OK" && lineIndex > 0 && int.TryParse(lines[lineIndex - 1], out LogicChannelId))
+            {
+                return LogicChannelId;
+            }
         }
 
-        return -1;
+        LogicChannelId = -1;
+
+        return LogicChannelId;
     }
 
     public async Task<bool> LogicChannelClose()

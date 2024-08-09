@@ -64,7 +64,7 @@ public partial class ApduAtDevice : BaseAtDevice
         return Task.FromResult(lines);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
         if (_portStream is not null)
         {

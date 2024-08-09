@@ -22,7 +22,7 @@ public class ApduAtKnDevice : BaseAtDevice
         _password = password;
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
         _httpClient.Dispose();
     }
