@@ -25,12 +25,6 @@ public partial class ApduAtDevice : BaseAtDevice
             ReadTimeout = 10000,
             WriteTimeout = 1000,
         };
-
-        if (!_portStream.GetPortNames()
-            .Contains(atDevice, StringComparer.OrdinalIgnoreCase))
-        {
-            throw new Exception($"Serial Port {atDevice} not found");
-        }
     }
 
     [GeneratedRegex("\r\n(OK|ERROR|\\+CME ERROR|\\+CMS ERROR)")]
@@ -40,7 +34,7 @@ public partial class ApduAtDevice : BaseAtDevice
     {
         if (_portStream is null)
         {
-            throw new ArgumentNullException();
+            throw new NullReferenceException();
         }
 
         var data = new StringBuilder();
@@ -84,13 +78,26 @@ public partial class ApduAtDevice : BaseAtDevice
 
     public override Task<bool> Connect()
     {
-        _portStream!.Open();
+        if (_portStream is null)
+        {
+            throw new NullReferenceException();
+        }
+
+        var port = _portStream.PortName;
+
+        if (!_portStream.GetPortNames()
+            .Contains(port, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new Exception($"Serial Port {port} not found");
+        }
+
+        _portStream.Open();
         return Task.FromResult(true);
     }
 
     public override Task<bool> Disconnect()
     {
-        _portStream!.Close();
+        _portStream?.Close();
         return Task.FromResult(true);
     }
 }
