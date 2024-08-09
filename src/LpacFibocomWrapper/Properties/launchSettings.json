@@ -1,11 +1,12 @@
 {
   "profiles": {
-    "LpacFibocomWrapper": {
+    "Develop": {
       "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../../../EasyLPAC",
+      "commandLineArgs": "version",
       "environmentVariables": {
         "AT_DEVICE": "COM10"
-      },
-      "commandLineArgs": "version"
+      }
     }
   }
 }
