@@ -65,7 +65,7 @@ public static class Program
         {
             var atKnLogin = Environment.GetEnvironmentVariable("AT_KN_LOGIN") ?? throw new Exception("AT_KN_LOGIN is empty");
             var atKnPassword = Environment.GetEnvironmentVariable("AT_KN_PASSWORD") ?? throw new Exception("AT_KN_PASSWORD is empty");
-            return new ApduAtKnDevice(atDevice!, atKnAddress, atKnLogin, atKnPassword);
+            return new ApduAtKnDevice(atDevice, atKnAddress, atKnLogin, atKnPassword);
         }
 
         return new ApduAtDevice(atDevice);
