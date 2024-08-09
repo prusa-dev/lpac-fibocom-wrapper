@@ -174,8 +174,18 @@ public static class Program
                             continue;
 
                         Console.WriteLine(stdOut.Text);
-                        var request = JsonNode.Parse(stdOut.Text)!;
-                        var requestType = (string)request["type"]!;
+
+                        JsonNode request;
+                        try
+                        {
+                            request = JsonNode.Parse(stdOut.Text)!;
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+
+                        var requestType = (string?)request["type"];
 
                         if (requestType == "apdu")
                         {
@@ -187,6 +197,7 @@ public static class Program
                             Console.WriteLine(response);
                             InputWriteLine(response);
                         }
+
                         break;
                     case StandardErrorCommandEvent stdErr:
                         Console.Error.WriteLine(stdErr.Text);
